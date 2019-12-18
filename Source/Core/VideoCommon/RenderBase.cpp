@@ -22,6 +22,7 @@
 #include <string>
 #include <tuple>
 
+#include <fmt/format.h>
 #include <imgui.h>
 
 #include "Common/Assert.h"
@@ -64,6 +65,7 @@
 #include "VideoCommon/NetPlayChatUI.h"
 #include "VideoCommon/NetPlayGolfUI.h"
 #include "VideoCommon/OnScreenDisplay.h"
+#include "VideoCommon/OpcodeDecoding.h"
 #include "VideoCommon/PixelEngine.h"
 #include "VideoCommon/PixelShaderManager.h"
 #include "VideoCommon/PostProcessing.h"
@@ -879,19 +881,18 @@ std::tuple<int, int> Renderer::CalculateOutputDimensions(int width, int height) 
 
 void Renderer::CheckFifoRecording()
 {
-  bool wasRecording = g_bRecordFifoData;
-  g_bRecordFifoData = FifoRecorder::GetInstance().IsRecording();
+  const bool was_recording = OpcodeDecoder::g_record_fifo_data;
+  OpcodeDecoder::g_record_fifo_data = FifoRecorder::GetInstance().IsRecording();
 
-  if (g_bRecordFifoData)
+  if (!OpcodeDecoder::g_record_fifo_data)
+    return;
+
+  if (!was_recording)
   {
-    if (!wasRecording)
-    {
-      RecordVideoMemory();
-    }
-
-    FifoRecorder::GetInstance().EndFrame(CommandProcessor::fifo.CPBase,
-                                         CommandProcessor::fifo.CPEnd);
+    RecordVideoMemory();
   }
+
+  FifoRecorder::GetInstance().EndFrame(CommandProcessor::fifo.CPBase, CommandProcessor::fifo.CPEnd);
 }
 
 void Renderer::RecordVideoMemory()
@@ -1589,8 +1590,8 @@ void Renderer::StopFrameDumpToFFMPEG()
 
 std::string Renderer::GetFrameDumpNextImageFileName() const
 {
-  return StringFromFormat("%sframedump_%u.png", File::GetUserPath(D_DUMPFRAMES_IDX).c_str(),
-                          m_frame_dump_image_counter);
+  return fmt::format("{}framedump_{}.png", File::GetUserPath(D_DUMPFRAMES_IDX),
+                     m_frame_dump_image_counter);
 }
 
 bool Renderer::StartFrameDumpToImage(const FrameDumpConfig& config)

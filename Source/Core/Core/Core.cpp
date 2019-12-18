@@ -289,12 +289,6 @@ void Stop()  // - Hammertime!
 
     g_video_backend->Video_ExitLoop();
   }
-
-  ResetRumble();
-
-#ifdef USE_MEMORYWATCHER
-  s_memory_watcher.reset();
-#endif
 }
 
 void DeclareAsCPUThread()
@@ -370,6 +364,10 @@ static void CpuThread(const std::optional<std::string>& savestate_path, bool del
 
   // Enter CPU run loop. When we leave it - we are done.
   CPU::Run();
+
+#ifdef USE_MEMORYWATCHER
+  s_memory_watcher.reset();
+#endif
 
   s_is_started = false;
 
@@ -530,7 +528,12 @@ static void EmuThread(std::unique_ptr<BootParameters> boot, WindowSystemInfo wsi
       return;
 
     if (init_wiimotes)
+    {
+      Wiimote::ResetAllWiimotes();
       Wiimote::Shutdown();
+    }
+
+    ResetRumble();
 
     Keyboard::Shutdown();
     Pad::Shutdown();
@@ -856,9 +859,12 @@ void Callback_VideoCopiedToXFB(bool video_update)
 {
   if (video_update)
     s_drawn_frame++;
+}
 
+// Called at field boundaries in `VideoInterface::Update()`
+void FrameUpdate()
+{
   Movie::FrameUpdate();
-
   if (s_frame_step)
   {
     s_frame_step = false;
